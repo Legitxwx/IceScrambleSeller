@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ice Scramble</title>
+
+<style>
+:root{
+  --pink:#fb7185;
+  --purple:#a855f7;
+  --green:#22c55e;
+  --cream:#fff7ed;
+  --soft:#fff1e6;
+  --text:#3f3f46;
+}
+
+*{box-sizing:border-box;font-family:Poppins,system-ui}
+
+body{
+  margin:0;
+  background:linear-gradient(180deg,#fde68a,#fbcfe8);
+  min-height:100vh;
+  display:flex;
+  justify-content:center;
+}
+
+.container{
+  width:100%;
+  max-width:1200px;
+  padding:20px;
+}
+
+.card{
+  background:white;
+  border-radius:24px;
+  padding:22px;
+  margin-bottom:20px;
+  box-shadow:0 12px 35px rgba(0,0,0,.1);
+}
+
+.title{
+  text-align:center;
+  font-weight:900;
+  font-size:36px;
+  color:var(--pink);
+  margin-bottom:14px;
+}
+
+h2{
+  color:var(--pink);
+  margin:0 0 14px;
+  font-size:22px;
+}
+
+label{
+  font-size:14px;
+  color:#71717a;
+}
+
+input,select{
+  width:100%;
+  padding:14px;
+  border-radius:16px;
+  border:1.5px solid #f1f5f9;
+  margin:6px 0 16px;
+  font-size:16px;
+}
+
+button{
+  border:none;
+  border-radius:18px;
+  padding:16px;
+  font-weight:800;
+  font-size:16px;
+  cursor:pointer;
+}
+
+.btn-main{
+  width:100%;
+  background:linear-gradient(135deg,var(--pink),var(--purple));
+  color:white;
+}
+
+.summary{
+  background:#fff7ed;
+  border-radius:16px;
+  padding:14px;
+  text-align:center;
+  font-weight:800;
+  margin-top:14px;
+}
+
+.btn-export{
+  margin-top:12px;
+  width:100%;
+  background:#fff7ed;
+}
+
+.data{
+  background:#fef3c7;
+  border-radius:14px;
+  padding:12px;
+  margin-top:12px;
+  font-size:14px;
+  text-align:center;
+}
+
+.orders{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+  gap:16px;
+}
+
+.order{
+  background:var(--soft);
+  border-radius:20px;
+  padding:16px;
+  position:relative;
+  animation:pop .25s ease;
+}
+
+@keyframes pop{
+  from{opacity:0;transform:scale(.95)}
+  to{opacity:1;transform:scale(1)}
+}
+
+.order.destroy{
+  animation:destroy .45s ease forwards;
+}
+
+@keyframes destroy{
+  to{opacity:0;transform:scale(.4) rotate(-12deg)}
+}
+
+.badge{
+  position:absolute;
+  top:-8px;
+  right:-8px;
+  background:var(--purple);
+  color:white;
+  border-radius:999px;
+  padding:6px 10px;
+  font-size:12px;
+  font-weight:800;
+}
+
+.name{
+  font-weight:900;
+  font-size:18px;
+}
+
+.meta{
+  font-size:14px;
+  color:#555;
+}
+
+.price{
+  margin:10px 0;
+  font-weight:900;
+  font-size:18px;
+}
+
+.complete{
+  width:100%;
+  background:var(--green);
+  color:white;
+}
+
+.empty{
+  text-align:center;
+  color:#999;
+  padding:24px;
+}
+
+/* TOP NOTIFICATION */
+.notify{
+  position:fixed;
+  top:-80px;
+  left:50%;
+  transform:translateX(-50%);
+  background:#22c55e;
+  color:white;
+  padding:14px 26px;
+  border-radius:18px;
+  font-weight:900;
+  font-size:15px;
+  box-shadow:0 10px 30px rgba(0,0,0,.25);
+  z-index:9999;
+  opacity:0;
+}
+
+.notify.show{
+  animation:notifyIn .4s ease forwards,
+             notifyOut .4s ease forwards 2.6s;
+}
+
+@keyframes notifyIn{
+  from{top:-80px;opacity:0}
+  to{top:18px;opacity:1}
+}
+
+@keyframes notifyOut{
+  to{top:-80px;opacity:0}
+}
+
+@media (min-width:900px){
+  .title{font-size:42px}
+}
+</style>
+</head>
+
+<body>
+
+<div id="notify" class="notify"></div>
+
+<div class="container">
+
+  <div class="card">
+    <div class="title">Ice Scramble Available</div>
+
+    <h2>Place Order</h2>
+    <label>Customer Name</label>
+    <input id="name" placeholder="Customer name" />
+
+    <label>Flavor (12oz – ₱50)</label>
+    <select id="flavor">
+      <option>Ube</option>
+      <option>Chocolate</option>
+    </select>
+
+    <label>Quantity</label>
+    <input id="qty" type="number" min="1" value="1" />
+
+    <button class="btn-main" onclick="placeOrder()">Place Order</button>
+
+    <div class="summary" id="summary">Total Sales Today: ₱0</div>
+    <button class="btn-export" onclick="exportPNG()">Export Daily Sales (PNG)</button>
+    <div class="data" id="data">Orders Count: 0 | Total Quantity: 0</div>
+  </div>
+
+  <div class="card">
+    <h2>Orders</h2>
+    <div id="orders" class="orders"></div>
+    <div id="empty" class="empty">No orders yet</div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+<script>
+// Load saved orders and total
+let orders = JSON.parse(localStorage.getItem('orders')) || [];
+let total = +localStorage.getItem('total') || 0;
+
+// Notification helper
+function notify(msg){
+  const n = document.getElementById('notify');
+  n.innerText = msg;
+  n.classList.remove('show');
+  void n.offsetWidth;
+  n.classList.add('show');
+}
+
+// Function to find the smallest missing order number
+function getNextOrderNumber(){
+  const numbers = orders.map(o => o.q).sort((a,b)=>a-b);
+  let n = 1;
+  for(const num of numbers){
+    if(num === n) n++;
+    else break;
+  }
+  return n;
+}
+
+// Save orders and total
+function save(){
+  localStorage.setItem('orders', JSON.stringify(orders));
+  localStorage.setItem('total', total);
+}
+
+// Place a new order
+function placeOrder(){
+  const name = document.getElementById('name').value.trim();
+  const flavor = document.getElementById('flavor').value;
+  const qty = +document.getElementById('qty').value;
+  if(!name) return alert('Enter name');
+
+  orders.push({
+    id: Date.now(),
+    name,
+    flavor,
+    qty,
+    q: getNextOrderNumber()
+  });
+
+  save();
+  notify('Order added ✔');
+  render();
+  document.getElementById('name').value = '';
+}
+
+// Complete an order
+function complete(id){
+  const el = document.querySelector(`[data-id="${id}"]`);
+  if(el){
+    el.classList.add('destroy');
+    setTimeout(()=>{
+      const o = orders.find(x => x.id === id);
+      orders = orders.filter(x => x.id !== id);
+      total += o.qty * 50;
+      save();
+      notify('Order completed 💚');
+      render();
+    }, 450);
+  }
+}
+
+// Render orders
+function render(){
+  const box = document.getElementById('orders');
+  box.innerHTML = '';
+  document.getElementById('empty').style.display = orders.length ? 'none' : 'block';
+
+  let tq = 0;
+  orders.forEach(o => {
+    tq += o.qty;
+    const d = document.createElement('div');
+    d.className = 'order';
+    d.dataset.id = o.id;
+    d.innerHTML = `
+      <div class="badge">#${o.q}</div>
+      <div class="name">${o.name}</div>
+      <div class="meta">${o.flavor} • 12oz</div>
+      <div class="meta">Qty: ${o.qty}</div>
+      <div class="price">₱${o.qty*50}</div>
+      <button class="complete" onclick="complete(${o.id})">Complete</button>
+    `;
+    box.appendChild(d);
+  });
+
+  document.getElementById('summary').innerText = `Total Sales Today: ₱${total}`;
+  document.getElementById('data').innerText = `Orders Count: ${orders.length} | Total Quantity: ${tq}`;
+}
+
+// Export PNG
+function exportPNG(){
+  notify('Exporting daily sales...');
+  html2canvas(document.querySelector('.card:last-child'), {backgroundColor:null})
+  .then(c=>{
+    const a = document.createElement('a');
+    a.download = 'daily-sales.png';
+    a.href = c.toDataURL();
+    a.click();
+    notify('Export complete ✔');
+  });
+}
+
+render();
+</script>
+
+</body>
+</html>
